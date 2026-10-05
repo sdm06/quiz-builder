@@ -3,9 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Production-grade Quiz Builder: NestJS + Prisma API and a Next.js App Router frontend",
-  "packageManager": "pnpm@10.28.0",
+  "packageManager": "pnpm@10.15.1",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.0.0"
   },
   "scripts": {
     "build": "pnpm --filter @quiz-builder/backend build && pnpm --filter @quiz-builder/frontend build",
@@ -23,6 +23,6 @@
     "db:seed": "pnpm --filter @quiz-builder/backend db:seed",
     "db:reset": "pnpm --filter @quiz-builder/backend db:reset",
     "db:studio": "pnpm --filter @quiz-builder/backend db:studio",
-    "setup": "pnpm install && pnpm db:generate && pnpm db:migrate && pnpm db:seed"
+    "bootstrap": "pnpm install && pnpm db:generate && pnpm db:deploy && pnpm db:seed"
   }
 }
