@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# build output
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# test output
+coverage/
+
+# env
+.env
+.env.local
+.env.*.local
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# git
+.git/
+
+# IDE
+*.swp
+*.swo
+*~
