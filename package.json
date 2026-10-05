@@ -23,6 +23,6 @@
     "db:seed": "pnpm --filter @quiz-builder/backend db:seed",
     "db:reset": "pnpm --filter @quiz-builder/backend db:reset",
     "db:studio": "pnpm --filter @quiz-builder/backend db:studio",
-    "bootstrap": "pnpm install && pnpm db:generate && pnpm db:deploy && pnpm db:seed"
+    "bootstrap": "pnpm install && node scripts/ensure-backend-env.mjs && pnpm db:generate && pnpm db:deploy && pnpm db:seed"
   }
 }
