@@ -25,7 +25,7 @@ Create quizzes with three question types, then solve them with server-side gradi
 
 ```bash
 pnpm install
-pnpm bootstrap   # generates Prisma client, applies migrations, seeds sample quizzes
+pnpm bootstrap   # creates backend/.env, generates Prisma client, applies migrations, seeds sample quizzes
 pnpm dev
 ```
 
@@ -35,7 +35,8 @@ Then open:
 - Backend API: http://localhost:4000
 - Health check: http://localhost:4000/health
 
-`pnpm bootstrap` is safe to re-run: it skips seeding if the database already has quizzes.
+`pnpm bootstrap` is safe to re-run: it never overwrites an existing `backend/.env`
+and skips seeding if the database already has quizzes.
 
 ### Docker
 
@@ -203,6 +204,8 @@ quiz-builder/
 ├── package.json              # Workspace root (pnpm bootstrap)
 ├── pnpm-workspace.yaml
 ├── compose.yaml              # Docker Compose
+├── scripts/
+│   └── ensure-backend-env.mjs # Creates backend/.env on first bootstrap
 ├── .prettierrc
 ├── .editorconfig
 ├── .gitignore
@@ -301,4 +304,6 @@ quiz-builder/
 
 6. **Setup Script**: Named `bootstrap`, not `setup`. `pnpm setup` resolves to pnpm's own built-in command and would silently skip the project script.
 
-7. **Pinned Versions**: Prisma is held at `^7.10.0` (the 8.x release candidate dropped `prisma generate`), TypeScript at `^6.0.3` (7.x ships `tsc` only, but the Nest CLI needs the programmatic compiler API), and `better-sqlite3` at `^12.11.1` (13.x dropped prebuilt binaries and requires a full build toolchain in the runtime image).
+7. **Environment File**: `backend/.env` is gitignored, so a fresh clone has none. `pnpm bootstrap` creates it from `backend/.env.example` via `scripts/ensure-backend-env.mjs`; without it `prisma generate` fails because `prisma.config.ts` requires `DATABASE_URL`.
+
+8. **Pinned Versions**: Prisma is held at `^7.10.0` (the 8.x release candidate dropped `prisma generate`), TypeScript at `^6.0.3` (7.x ships `tsc` only, but the Nest CLI needs the programmatic compiler API), and `better-sqlite3` at `^12.11.1` (13.x dropped prebuilt binaries and requires a full build toolchain in the runtime image).
