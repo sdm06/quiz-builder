@@ -39,7 +39,8 @@ RUN groupadd -r nodejs && useradd -r -g nodejs -s /bin/bash -m nodejs
 # nesting depth Next.js emitted them at.
 COPY --from=builder /app/frontend/.next/standalone ./
 COPY --from=builder /app/frontend/.next/static ./frontend/.next/static
-COPY --from=builder /app/frontend/public ./frontend/public
+# No public/ copy: the app ships no static assets, and the directory does not
+# exist in the repository. Re-add the line above if public/ is ever introduced.
 
 USER nodejs
 
