@@ -1,0 +1,59 @@
+// Prisma schema for the Quiz Builder application.
+//
+// The SQLite connector supports native `enum` support (Prisma >= 6.2.0) and
+// `onDelete: Cascade`, so this schema runs unchanged on SQLite and PostgreSQL.
+// The connection string lives in `prisma.config.ts` (Prisma 7 convention).
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated/prisma"
+  runtime             = "nodejs"
+  moduleFormat        = "esm"
+  generatedFileExtension = "ts"
+  // Emitted imports keep the `.ts` extension so that `tsx` (prisma db seed)
+  // resolves the generated sources. TypeScript rewrites them back to `.js` on
+  // emit via `rewriteRelativeImportExtensions` (see tsconfig.json).
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+enum QuestionType {
+  BOOLEAN
+  INPUT
+  CHECKBOX
+}
+
+model Quiz {
+  id        String     @id @default(uuid())
+  title     String
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  questions Question[]
+}
+
+model Question {
+  id            String       @id @default(uuid())
+  quizId        String
+  quiz          Quiz         @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  type          QuestionType
+  text          String
+  options       Option[]
+  booleanAnswer Boolean?
+  textAnswer    String?
+  order         Int          @default(0)
+
+  @@index([quizId, order])
+}
+
+model Option {
+  id         String   @id @default(uuid())
+  questionId String
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  text       String
+  isCorrect  Boolean  @default(false)
+
+  @@index([questionId])
+}

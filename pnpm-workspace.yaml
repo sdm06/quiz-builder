@@ -1,0 +1,13 @@
+packages:
+  - backend
+  - frontend
+
+# pnpm 10 blocks lifecycle scripts by default. Prisma's engine download and
+# better-sqlite3's native binding both require them.
+onlyBuiltDependencies:
+  - '@prisma/client'
+  - '@prisma/engines'
+  - better-sqlite3
+  - esbuild
+  - prisma
+  - unrs-resolver
