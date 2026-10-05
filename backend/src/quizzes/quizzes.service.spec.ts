@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { QuizzesService } from './quizzes.service.js';
@@ -176,6 +176,170 @@ describe('QuizzesService', () => {
       prisma.quiz.findUnique.mockResolvedValue(null);
 
       await expect(service.remove('missing-id')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findOneForPlay', () => {
+    it('should strip the answer key so it cannot leak to the client', async () => {
+      prisma.quiz.findUnique.mockResolvedValue({
+        id: 'quiz-1',
+        title: 'Playable',
+        questions: [
+          {
+            id: 'q1',
+            type: 'BOOLEAN',
+            text: 'Is it true?',
+            booleanAnswer: true,
+            textAnswer: null,
+            order: 0,
+            options: [],
+          },
+          {
+            id: 'q2',
+            type: 'CHECKBOX',
+            text: 'Pick one',
+            booleanAnswer: null,
+            textAnswer: null,
+            order: 1,
+            options: [
+              { id: 'o1', text: 'Right', isCorrect: true },
+              { id: 'o2', text: 'Wrong', isCorrect: false },
+            ],
+          },
+        ],
+      });
+
+      const result = await service.findOneForPlay('quiz-1');
+
+      expect(result.questions[0]).toEqual({
+        id: 'q1',
+        type: 'BOOLEAN',
+        text: 'Is it true?',
+        order: 0,
+        options: [],
+      });
+      // Options are reduced to id + text: no isCorrect.
+      expect(result.questions[1]!.options).toEqual([
+        { id: 'o1', text: 'Right' },
+        { id: 'o2', text: 'Wrong' },
+      ]);
+      expect(JSON.stringify(result)).not.toContain('isCorrect');
+      expect(JSON.stringify(result)).not.toContain('booleanAnswer');
+    });
+
+    it('should throw NotFoundException when quiz does not exist', async () => {
+      prisma.quiz.findUnique.mockResolvedValue(null);
+
+      await expect(service.findOneForPlay('missing')).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('submit', () => {
+    const quizFixture = {
+      id: 'quiz-1',
+      title: 'Graded',
+      questions: [
+        { id: 'q1', type: 'BOOLEAN', text: 'Q1', booleanAnswer: true, textAnswer: null, order: 0, options: [] },
+        { id: 'q2', type: 'INPUT', text: 'Q2', booleanAnswer: null, textAnswer: 'Paris', order: 1, options: [] },
+        {
+          id: 'q3',
+          type: 'CHECKBOX',
+          text: 'Q3',
+          booleanAnswer: null,
+          textAnswer: null,
+          order: 2,
+          options: [
+            { id: 'o1', text: 'A', isCorrect: true },
+            { id: 'o2', text: 'B', isCorrect: true },
+            { id: 'o3', text: 'C', isCorrect: false },
+          ],
+        },
+      ],
+    };
+
+    it('should grade every question type correctly', async () => {
+      prisma.quiz.findUnique.mockResolvedValue(quizFixture);
+
+      const result = await service.submit('quiz-1', {
+        answers: [
+          { questionId: 'q1', type: QuestionType.BOOLEAN, booleanAnswer: true },
+          { questionId: 'q2', type: QuestionType.INPUT, textAnswer: 'paris' },
+          { questionId: 'q3', type: QuestionType.CHECKBOX, optionIds: ['o2', 'o1'] },
+        ],
+      });
+
+      expect(result.totalQuestions).toBe(3);
+      expect(result.correctCount).toBe(3);
+      expect(result.score).toBe(100);
+      expect(result.results.every((r) => r.correct)).toBe(true);
+    });
+
+    it('should mark wrong answers and report partial checkbox picks', async () => {
+      prisma.quiz.findUnique.mockResolvedValue(quizFixture);
+
+      const result = await service.submit('quiz-1', {
+        answers: [
+          { questionId: 'q1', type: QuestionType.BOOLEAN, booleanAnswer: false },
+          { questionId: 'q2', type: QuestionType.INPUT, textAnswer: 'London' },
+          // Only one of the two correct options ticked, plus a wrong one.
+          { questionId: 'q3', type: QuestionType.CHECKBOX, optionIds: ['o1', 'o3'] },
+        ],
+      });
+
+      expect(result.correctCount).toBe(0);
+      expect(result.score).toBe(0);
+      const checkbox = result.results.find((r) => r.questionId === 'q3');
+      expect(checkbox?.correct).toBe(false);
+      expect(checkbox?.incorrectOptionIds).toEqual(['o3']);
+    });
+
+    it('should ignore casing and extra whitespace when grading text answers', async () => {
+      prisma.quiz.findUnique.mockResolvedValue(quizFixture);
+
+      const result = await service.submit('quiz-1', {
+        answers: [{ questionId: 'q2', type: QuestionType.INPUT, textAnswer: '  PaRis  ' }],
+      });
+
+      expect(result.results.find((r) => r.questionId === 'q2')?.correct).toBe(true);
+    });
+
+    it('should count unanswered questions as incorrect', async () => {
+      prisma.quiz.findUnique.mockResolvedValue(quizFixture);
+
+      const result = await service.submit('quiz-1', { answers: [] });
+
+      expect(result.totalQuestions).toBe(3);
+      expect(result.correctCount).toBe(0);
+      expect(result.results).toHaveLength(3);
+    });
+
+    it('should reject answers for questions outside the quiz', async () => {
+      prisma.quiz.findUnique.mockResolvedValue(quizFixture);
+
+      await expect(
+        service.submit('quiz-1', {
+          answers: [{ questionId: 'not-in-quiz', type: QuestionType.BOOLEAN, booleanAnswer: true }],
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('should reject duplicate answers for the same question', async () => {
+      prisma.quiz.findUnique.mockResolvedValue(quizFixture);
+
+      await expect(
+        service.submit('quiz-1', {
+          answers: [
+            { questionId: 'q1', type: QuestionType.BOOLEAN, booleanAnswer: true },
+            { questionId: 'q1', type: QuestionType.BOOLEAN, booleanAnswer: false },
+          ],
+        }),
+      ).rejects.toThrow(/Duplicate answer/);
+    });
+
+    it('should throw NotFoundException when quiz does not exist', async () => {
+      prisma.quiz.findUnique.mockResolvedValue(null);
+
+      await expect(service.submit('missing', { answers: [] })).rejects.toThrow(NotFoundException);
     });
   });
 });
